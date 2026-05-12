@@ -1,13 +1,15 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
 export default function SuccessPage() {
-  const [mounted, setMounted] = useState(false);
-  const params = useSearchParams();
-  useEffect(() => setMounted(true), []);
-  const sessionId = params.get("session_id");
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setSessionId(params.get("session_id"));
+  }, []);
+
   const premiumHref = sessionId ? `/premium?session_id=${encodeURIComponent(sessionId)}` : "/premium";
 
   return (
