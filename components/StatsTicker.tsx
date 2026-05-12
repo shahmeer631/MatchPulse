@@ -6,9 +6,9 @@ const stats = [
   { label: "Usuarios activos", value: "1.2K" },
   { label: "Ligas cubiertas", value: "4" },
   { label: "Análisis generados", value: "8.400+" },
-  { label: "Partidos analizados hoy", value: "24" },
   { label: "Tasa de acierto", value: "71%" },
   { label: "Nuevos usuarios hoy", value: "47" },
+  { label: "Partidos en directo", value: "6" },
 ];
 
 export default function StatsTicker() {

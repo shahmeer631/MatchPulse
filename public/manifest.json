@@ -1,0 +1,13 @@
+{
+  "name": "MatchPulse",
+  "short_name": "MatchPulse",
+  "description": "Análisis de fútbol con inteligencia artificial",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#22C55E",
+  "lang": "es",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

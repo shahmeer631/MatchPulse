@@ -13,13 +13,12 @@ export default function EmailCapture({ variant = "hero" }: EmailCaptureProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.includes("@")) {
+    if (!email.includes("@") || !email.includes(".")) {
       setError("Introduce un email válido");
       return;
     }
     setLoading(true);
     setError("");
-    // Simulate API call — in production connect to Mailchimp/ConvertKit/etc.
     await new Promise((r) => setTimeout(r, 800));
     setSubmitted(true);
     setLoading(false);
@@ -41,52 +40,34 @@ export default function EmailCapture({ variant = "hero" }: EmailCaptureProps) {
     );
   }
 
-  if (variant === "banner") {
-    return (
-      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => { setEmail(e.target.value); setError(""); }}
-          placeholder="tu@email.com"
-          className="flex-1 bg-dark-800 border border-white/10 focus:border-brand-500/50 text-white placeholder-slate-600 rounded-xl px-4 py-3 text-sm outline-none transition-all"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="shrink-0 px-6 py-3 bg-brand-500 hover:bg-brand-400 disabled:opacity-60 text-dark-900 font-bold text-sm rounded-xl transition-all whitespace-nowrap">
-          {loading ? "..." : "Recibir análisis gratis"}
-        </button>
-        {error && <p className="text-red-400 text-xs w-full">{error}</p>}
-      </form>
-    );
-  }
+  const inputClass = "flex-1 min-w-0 bg-dark-700 border border-white/10 focus:border-brand-500/50 text-white placeholder-slate-600 rounded-xl px-4 py-3.5 text-sm outline-none transition-all";
+  const btnClass = "shrink-0 px-6 py-3.5 bg-brand-500 hover:bg-brand-400 disabled:opacity-60 text-dark-900 font-bold text-sm rounded-xl transition-all whitespace-nowrap";
 
   return (
-    <form onSubmit={handleSubmit} className={`w-full ${variant === "hero" ? "max-w-md mx-auto" : "max-w-sm"}`}>
+    <form onSubmit={handleSubmit} className={`w-full ${variant === "hero" ? "max-w-md mx-auto" : "max-w-lg"}`} suppressHydrationWarning>
       <div className="flex flex-col sm:flex-row gap-3">
         <input
           type="email"
           value={email}
           onChange={(e) => { setEmail(e.target.value); setError(""); }}
           placeholder="tu@email.com"
-          className="flex-1 bg-dark-700 border border-white/10 focus:border-brand-500/50 text-white placeholder-slate-600 rounded-xl px-4 py-3.5 text-sm outline-none transition-all"
+          className={inputClass}
+          suppressHydrationWarning
         />
-        <button
-          type="submit"
-          disabled={loading}
-          className="shrink-0 px-6 py-3.5 bg-brand-500 hover:bg-brand-400 disabled:opacity-60 text-dark-900 font-bold text-sm rounded-xl transition-all">
+        <button type="submit" disabled={loading} className={btnClass}>
           {loading ? (
-            <svg className="animate-spin w-4 h-4 mx-auto" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-            </svg>
-          ) : "Acceso gratuito →"}
+            <span className="flex items-center gap-2">
+              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+            </span>
+          ) : variant === "banner" ? "Recibir análisis gratis" : "Acceso gratuito →"}
         </button>
       </div>
       {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
-      <p className="text-xs text-slate-600 mt-2 text-center">
-        Sin spam. Sólo análisis diarios. Cancela cuando quieras.
+      <p className="text-xs text-slate-600 mt-2 text-center sm:text-left">
+        Sin spam · Análisis diarios · Cancela cuando quieras
       </p>
     </form>
   );

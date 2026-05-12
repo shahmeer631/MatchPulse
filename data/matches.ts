@@ -1,4 +1,5 @@
 export type League = "La Liga" | "Premier League" | "Serie A" | "Champions League";
+export type MatchStatus = "scheduled" | "live" | "finished";
 
 export interface Insight {
   homeWin: number;
@@ -15,37 +16,37 @@ export interface Match {
   id: string;
   homeTeam: string;
   awayTeam: string;
-  homeLogo: string;
-  awayLogo: string;
-  date: string;
-  time: string;
+  homeScore?: number;
+  awayScore?: number;
+  dateISO: string;       // ISO 8601 UTC — client converts to local timezone
   league: League;
   leagueFlag: string;
+  status: MatchStatus;
+  minute?: number;       // if live
   insight: Insight;
 }
 
+// All times in UTC — the UI converts to user local timezone via Intl API
 export const matches: Match[] = [
   {
     id: "1",
     homeTeam: "Real Madrid",
     awayTeam: "FC Barcelona",
-    homeLogo: "https://api.dicebear.com/7.x/initials/svg?seed=RM&backgroundColor=fbbf24&textColor=0f172a",
-    awayLogo: "https://api.dicebear.com/7.x/initials/svg?seed=FCB&backgroundColor=3b82f6&textColor=ffffff",
-    date: "2025-05-10",
-    time: "21:00",
+    dateISO: "2025-05-10T19:00:00Z", // 21:00 CET (Spain)
     league: "La Liga",
     leagueFlag: "🇪🇸",
+    status: "scheduled",
     insight: {
       homeWin: 42,
       draw: 24,
       awayWin: 34,
-      analysis: "El Clásico llega en un momento decisivo para la clasificación. Real Madrid llega con ventaja en casa y con Vinícius Jr. en estado de forma excepcional (7 goles en los últimos 5 partidos). Barcelona presenta baja de Pedri por lesión, lo que debilita su centro del campo.",
+      analysis: "El Clásico llega en un momento decisivo de la temporada. Real Madrid parte como favorito local con Vinícius Jr. en una racha goleadora excepcional (7 goles en los últimos 5 partidos). Barcelona confirma la baja de Pedri por lesión muscular, lo que debilita considerablemente su control del centro del campo. Históricamente, Real Madrid gana el 58% de los Clásicos disputados en el Bernabéu.",
       keyFactors: [
-        "Vinícius Jr. en racha goleadora (7 goles en 5 partidos)",
-        "Pedri baja confirmada para Barcelona",
-        "Real Madrid invicto en casa en la última temporada",
-        "Barça encajó en sus últimos 4 desplazamientos",
-        "Árbitro favorable históricamente al equipo local"
+        "Vinícius Jr. en racha goleadora — 7 goles en 5 partidos",
+        "Pedri baja confirmada — centro del campo barcelonista mermado",
+        "Real Madrid invicto en casa en la última temporada (14V 2E)",
+        "Barça encajó en sus últimos 4 desplazamientos de alto nivel",
+        "Real Madrid ganó 3 de los últimos 4 Clásicos en el Bernabéu"
       ],
       recommendation: "Victoria Local o Empate (1X)",
       confidence: "Alta",
@@ -54,25 +55,23 @@ export const matches: Match[] = [
   },
   {
     id: "2",
-    homeTeam: "Atlético Madrid",
+    homeTeam: "Atlético de Madrid",
     awayTeam: "Sevilla FC",
-    homeLogo: "https://api.dicebear.com/7.x/initials/svg?seed=ATM&backgroundColor=ef4444&textColor=ffffff",
-    awayLogo: "https://api.dicebear.com/7.x/initials/svg?seed=SFC&backgroundColor=f97316&textColor=ffffff",
-    date: "2025-05-10",
-    time: "18:30",
+    dateISO: "2025-05-10T16:30:00Z", // 18:30 CET
     league: "La Liga",
     leagueFlag: "🇪🇸",
+    status: "scheduled",
     insight: {
       homeWin: 55,
       draw: 22,
       awayWin: 23,
-      analysis: "Atlético llega líder y con la necesidad de sumar para mantener distancia. Sevilla en mala dinámica, sin ganar en los últimos 6 desplazamientos. El Cholo Simeone tiene un registro histórico excepcional en este tipo de encuentros.",
+      analysis: "Atlético de Madrid llega líder con la necesidad de sumar para mantener la ventaja en la clasificación. Sevilla atraviesa un bache de forma preocupante: sin ganar en sus últimos 6 desplazamientos y con problemas defensivos evidentes. Simeone tiene un historial dominante frente a equipos en descenso de forma en el Metropolitano.",
       keyFactors: [
-        "Atlético lleva 8 partidos sin perder en casa",
-        "Sevilla sin ganar fuera en sus últimos 6",
-        "Morata recuperado al 100% tras lesión muscular",
-        "Sevilla encaja una media de 2.1 goles/partido fuera",
-        "Simeone tiene 80% winrate vs equipos medios en casa"
+        "Atlético: 8 partidos sin perder como local esta temporada",
+        "Sevilla sin ganar fuera en sus últimos 6 desplazamientos",
+        "Morata recuperado al 100% de su lesión muscular",
+        "Sevilla encaja media de 2.1 goles/partido como visitante",
+        "Simeone: 78% de victorias vs equipos de la mitad baja en casa"
       ],
       recommendation: "Victoria Local (1)",
       confidence: "Alta",
@@ -83,25 +82,23 @@ export const matches: Match[] = [
     id: "3",
     homeTeam: "Manchester City",
     awayTeam: "Arsenal",
-    homeLogo: "https://api.dicebear.com/7.x/initials/svg?seed=MCI&backgroundColor=60a5fa&textColor=0f172a",
-    awayLogo: "https://api.dicebear.com/7.x/initials/svg?seed=ARS&backgroundColor=ef4444&textColor=ffffff",
-    date: "2025-05-11",
-    time: "17:30",
+    dateISO: "2025-05-11T15:30:00Z", // 16:30 CET (UK = UTC+1)
     league: "Premier League",
     leagueFlag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+    status: "scheduled",
     insight: {
       homeWin: 47,
       draw: 26,
       awayWin: 27,
-      analysis: "Partido estelar en el Etihad. City con Haaland plenamente recuperado marca 1.8 goles de promedio en casa. Arsenal llega en racha pero históricamente sufre en estos desplazamientos. Ambos equipos juegan alto y generan muchas ocasiones.",
+      analysis: "Duelo de candidatos al título en el Etihad. Erling Haaland está plenamente recuperado y promedia 1.8 goles por partido como local. Arsenal llega en buena dinámica pero históricamente sufre en este estadio: sin ganar en el Etihad en los últimos 5 años. Partido con alta expectativa de goles dados los estilos ofensivos de ambos equipos.",
       keyFactors: [
-        "Haaland recuperado y en forma excepcional",
+        "Haaland recuperado — 1.8 goles promedio en casa",
         "Arsenal sin ganar en el Etihad en los últimos 5 años",
-        "Partido con promedio de +3.1 goles en los últimos 6 enfrentamientos",
-        "City presiona altísimo, Arsenal vulnerable al contraataque",
-        "Ambos equipos necesitan los 3 puntos para el título"
+        "Promedio de +3.1 goles en los últimos 6 enfrentamientos directos",
+        "City presiona alto — Arsenal vulnerable al juego directo en transición",
+        "Ambos equipos necesitan puntuar para aspirar al título"
       ],
-      recommendation: "Más de 2.5 goles + Victoria Local",
+      recommendation: "Victoria Local + Más de 2.5 goles",
       confidence: "Media",
       isPremium: true,
     },
@@ -110,23 +107,21 @@ export const matches: Match[] = [
     id: "4",
     homeTeam: "Liverpool",
     awayTeam: "Chelsea",
-    homeLogo: "https://api.dicebear.com/7.x/initials/svg?seed=LIV&backgroundColor=dc2626&textColor=ffffff",
-    awayLogo: "https://api.dicebear.com/7.x/initials/svg?seed=CHE&backgroundColor=1d4ed8&textColor=ffffff",
-    date: "2025-05-11",
-    time: "14:00",
+    dateISO: "2025-05-11T12:00:00Z", // 13:00 CET
     league: "Premier League",
     leagueFlag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+    status: "scheduled",
     insight: {
       homeWin: 52,
       draw: 21,
       awayWin: 27,
-      analysis: "Anfield como fortaleza. Liverpool invicto en casa esta temporada con 14 victorias. Chelsea en reconstrucción bajo nuevo entrenador, aún sin encontrar estabilidad defensiva. Mo Salah en su mejor versión.",
+      analysis: "Anfield como fortaleza inquebrantable. Liverpool permanece invicto en casa esta temporada con 14 victorias consecutivas. Mo Salah encabeza la tabla de goleadores de la Premier con 24 tantos. Chelsea continúa en proceso de reconstrucción bajo su nuevo cuerpo técnico, con una defensa que encaja en el 80% de sus desplazamientos.",
       keyFactors: [
-        "Liverpool 14-0-0 en casa esta temporada",
-        "Salah top scorer de la Premier con 24 goles",
-        "Chelsea encaja en el 80% de sus desplazamientos",
-        "Nuevo sistema táctico de Chelsea aún sin consolidar",
-        "Anfield ejerce una presión psicológica enorme"
+        "Liverpool: 14 victorias consecutivas como local esta temporada",
+        "Salah: máximo goleador Premier con 24 goles en la temporada",
+        "Chelsea encaja en el 80% de sus desplazamientos fuera",
+        "Sistema táctico nuevo de Chelsea aún en fase de consolidación",
+        "La presión de Anfield es un factor psicológico determinante"
       ],
       recommendation: "Victoria Local (1)",
       confidence: "Alta",
@@ -137,52 +132,48 @@ export const matches: Match[] = [
     id: "5",
     homeTeam: "Juventus",
     awayTeam: "Inter de Milán",
-    homeLogo: "https://api.dicebear.com/7.x/initials/svg?seed=JUV&backgroundColor=1e293b&textColor=ffffff",
-    awayLogo: "https://api.dicebear.com/7.x/initials/svg?seed=INT&backgroundColor=1d4ed8&textColor=ffffff",
-    date: "2025-05-12",
-    time: "20:45",
+    dateISO: "2025-05-12T18:45:00Z", // 20:45 CET
     league: "Serie A",
     leagueFlag: "🇮🇹",
+    status: "scheduled",
     insight: {
       homeWin: 33,
       draw: 30,
       awayWin: 37,
-      analysis: "Derby d'Italia siempre impredecible. Inter llega como campeón defensor y en mejor forma. Juventus en casa pero sin convencer. Partido muy táctico esperado con pocos goles.",
+      analysis: "El Derby d'Italia es siempre el partido más impredecible de la Serie A. Inter llega como campeón defensor y en mejor racha de forma. Juventus en casa pero sin convincente rendimiento reciente. El análisis histórico apunta a un partido muy táctico con escasos goles: el 65% de estos enfrentamientos terminó con Under 2.5 en la última década.",
       keyFactors: [
         "Inter ganó los últimos 3 enfrentamientos directos",
-        "Juventus en casa con registro mediocre (50% victorias)",
-        "Duván Zapata baja confirmada para Inter",
-        "Histórico de Under 2.5 en el 65% de este enfrentamiento",
-        "Juventus sin perder en sus últimos 4 partidos en casa"
+        "Juventus: solo 50% de victorias como local esta temporada",
+        "Duván Zapata baja confirmada para Inter por lesión",
+        "65% de los últimos Derby d'Italia terminó con menos de 2.5 goles",
+        "Juventus lleva 4 partidos en casa sin perder (3E 1V)"
       ],
-      recommendation: "Menos de 2.5 goles + Empate o Victoria Visitante",
+      recommendation: "Menos de 2.5 goles (Under)",
       confidence: "Media",
       isPremium: true,
     },
   },
   {
     id: "6",
-    homeTeam: "Bayern Múnich",
+    homeTeam: "Bayern de Múnich",
     awayTeam: "PSG",
-    homeLogo: "https://api.dicebear.com/7.x/initials/svg?seed=BAY&backgroundColor=dc2626&textColor=ffffff",
-    awayLogo: "https://api.dicebear.com/7.x/initials/svg?seed=PSG&backgroundColor=1e3a5f&textColor=ffffff",
-    date: "2025-05-13",
-    time: "21:00",
+    dateISO: "2025-05-13T19:00:00Z", // 21:00 CET
     league: "Champions League",
     leagueFlag: "🏆",
+    status: "scheduled",
     insight: {
       homeWin: 48,
       draw: 19,
       awayWin: 33,
-      analysis: "Semifinal de Champions League con máxima tensión. Bayern en casa con el Allianz Arena como ventaja histórica. PSG con Mbappé ausente (lesión en el PSG... espera, ahora en Real Madrid). El equipo galo presenta dudas defensivas que Bayern puede explotar.",
+      analysis: "Semifinal de la UEFA Champions League en el Allianz Arena. Bayern de Múnich cuenta con el factor local en un estadio que se convierte en una trampa para los visitantes en noches europeas. Harry Kane lleva 5 goles en la Champions esta edición y llega en un estado de forma óptimo. PSG eliminó al Barça en cuartos pero mostró vulnerabilidades defensivas que Bayern puede explotar con presión alta.",
       keyFactors: [
-        "Bayern con 89% de victorias en semis de CL en casa",
-        "PSG eliminó al Barça en cuartos pero con muchos apuros",
-        "Kane en racha con 5 goles en Champions esta edición",
-        "PSG encajó en los últimos 4 partidos europeos",
-        "Ambiente brutal en el Allianz Arena, factor clave"
+        "Bayern: 89% de pases a semifinales de CL como local en su historia",
+        "Kane: 5 goles en Champions esta edición, en racha goleadora",
+        "PSG encajó en sus últimos 4 partidos europeos como visitante",
+        "Allianz Arena — ambiente de 75.000 espectadores, factor clave",
+        "PSG mostró debilidades defensivas ante presión alta en cuartos"
       ],
-      recommendation: "Victoria Local con +1.5 goles",
+      recommendation: "Victoria Local con Ambos equipos marcan",
       confidence: "Alta",
       isPremium: true,
     },

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <rect width="1200" height="630" fill="#030712"/>
+  <rect width="1200" height="4" fill="#22C55E"/>
+  <text x="600" y="220" font-family="Arial" font-size="100" font-weight="bold" fill="white" text-anchor="middle">MATCHPULSE</text>
+  <text x="600" y="310" font-family="Arial" font-size="36" fill="#22C55E" text-anchor="middle">Análisis deportivo con Inteligencia Artificial</text>
+  <text x="600" y="380" font-family="Arial" font-size="28" fill="#64748B" text-anchor="middle">La Liga · Premier League · Serie A · Champions League</text>
+  <rect x="440" y="430" width="320" height="60" rx="12" fill="#22C55E"/>
+  <text x="600" y="470" font-family="Arial" font-size="24" font-weight="bold" fill="#030712" text-anchor="middle">matchpulse.com</text>
+</svg>
