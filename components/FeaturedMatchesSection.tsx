@@ -4,14 +4,24 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { matches } from "@/data/matches";
 import MatchCard from "@/components/MatchCard";
-import { hasPremiumAccess } from "@/lib/premiumAccess";
+import {
+  hasPremiumAccess,
+  PREMIUM_ACCESS_CHANGED,
+} from "@/lib/premiumAccess";
 
 export default function FeaturedMatchesSection() {
   const featuredMatches = matches.slice(0, 3);
   const [isPremiumUser, setIsPremiumUser] = useState(false);
 
   useEffect(() => {
-    setIsPremiumUser(hasPremiumAccess());
+    const sync = () => setIsPremiumUser(hasPremiumAccess());
+    sync();
+    window.addEventListener(PREMIUM_ACCESS_CHANGED, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(PREMIUM_ACCESS_CHANGED, sync);
+      window.removeEventListener("storage", sync);
+    };
   }, []);
 
   return (

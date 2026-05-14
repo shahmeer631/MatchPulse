@@ -4,9 +4,17 @@ import { matches } from "@/data/matches";
 import MatchCard from "@/components/MatchCard";
 import StripeCheckout from "@/components/StripeCheckout";
 import Link from "next/link";
-import { hasPremiumAccess, setPremiumAccess } from "@/lib/premiumAccess";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import {
+  PREMIUM_ACCESS_CHANGED,
+  hasPremiumAccess,
+  setPasswordPremiumVerified,
+  clearPasswordPremiumAccess,
+  getPremiumAccessPayload,
+} from "@/lib/premiumAccess";
 
-const PREMIUM_PASSWORD = "matchpulse123";
+const PREMIUM_PASSWORD = process.env.NEXT_PUBLIC_PREMIUM_PASSWORD || "matchpulse2025";
 
 const freeFeatures = [
   { text: "Ver todos los partidos del día",     ok: true  },
@@ -34,8 +42,9 @@ const premiumFeatures = [
   { text: "Acceso a histórico de predicciones",  ok: true },
 ];
 
-function CanceledBanner({ show }: { show: boolean }) {
-  if (!show) return null;
+function CanceledBanner() {
+  const params = useSearchParams();
+  if (!params.get("canceled")) return null;
   return (
     <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6 text-sm text-amber-400 text-center">
       Pago cancelado — puedes volver a intentarlo cuando quieras.
@@ -45,45 +54,18 @@ function CanceledBanner({ show }: { show: boolean }) {
 
 export default function PremiumPage() {
   const [password, setPassword]       = useState("");
-  const [isAuth, setIsAuth]           = useState(false);
   const [error, setError]             = useState("");
   const [loading, setLoading]         = useState(false);
-  const [verifyingSession, setVerifyingSession] = useState(false);
-  const [showCanceled, setShowCanceled] = useState(false);
   const [activeTab, setActiveTab]     = useState<"login" | "subscribe">("subscribe");
+  const [accessReady, setAccessReady] = useState(false);
+  const [hasAccess, setHasAccess]     = useState(false);
 
   useEffect(() => {
-    const verifyCheckoutSession = async () => {
-      const params = new URLSearchParams(window.location.search);
-      setShowCanceled(params.get("canceled") === "1" || params.get("canceled") === "true");
-      if (hasPremiumAccess()) {
-        setIsAuth(true);
-      }
-
-      const sessionId = params.get("session_id");
-      if (!sessionId) return;
-
-      setVerifyingSession(true);
-      try {
-        const res = await fetch(`/api/verify-premium-session?session_id=${encodeURIComponent(sessionId)}`);
-        const data: { active?: boolean } = await res.json();
-        if (res.ok && data.active) {
-          setIsAuth(true);
-          setPremiumAccess(true);
-          setActiveTab("login");
-          setError("");
-          window.history.replaceState({}, "", "/premium");
-        } else {
-          setError("No se pudo validar tu suscripción. Escríbenos si el cobro ya fue realizado.");
-        }
-      } catch {
-        setError("Error al validar la sesión de pago. Inténtalo de nuevo en unos segundos.");
-      } finally {
-        setVerifyingSession(false);
-      }
-    };
-
-    void verifyCheckoutSession();
+    const sync = () => setHasAccess(hasPremiumAccess());
+    sync();
+    setAccessReady(true);
+    window.addEventListener(PREMIUM_ACCESS_CHANGED, sync);
+    return () => window.removeEventListener(PREMIUM_ACCESS_CHANGED, sync);
   }, []);
 
   const handleLogin = (e: React.FormEvent) => {
@@ -92,8 +74,8 @@ export default function PremiumPage() {
     setError("");
     setTimeout(() => {
       if (password === PREMIUM_PASSWORD) {
-        setIsAuth(true);
-        setPremiumAccess(true);
+        setPasswordPremiumVerified();
+        setHasAccess(true);
       } else {
         setError("Contraseña incorrecta. Verifica tus credenciales.");
       }
@@ -101,21 +83,19 @@ export default function PremiumPage() {
     }, 600);
   };
 
-  if (verifyingSession) {
+  const payload = accessReady ? getPremiumAccessPayload() : null;
+  const showPasswordLogout = !!payload?.password;
+
+  if (!accessReady) {
     return (
-      <main className="min-h-screen pt-28 px-4">
-        <div className="max-w-xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-brand-500/10 border border-brand-500/30 text-brand-400 text-xs px-3 py-2 rounded-full mb-4">
-            Verificando suscripción...
-          </div>
-          <p className="text-sm text-slate-500">Estamos comprobando tu pago con Stripe.</p>
-        </div>
+      <main className="min-h-screen pt-24 flex items-center justify-center px-4">
+        <p className="text-slate-500 text-sm">Cargando…</p>
       </main>
     );
   }
 
-  // Authenticated premium view
-  if (isAuth) {
+  // Suscripción o acceso por contraseña — zona de análisis (sin flujo de pago duplicado)
+  if (hasAccess) {
     return (
       <main className="min-h-screen pb-20">
         <div className="bg-dark-800 border-b border-white/5 pt-20 pb-8 px-4">
@@ -124,10 +104,22 @@ export default function PremiumPage() {
               <div className="flex items-center gap-2 bg-gold-500/10 border border-gold-500/30 text-gold-400 text-xs px-3 py-1.5 rounded-full">
                 <span>👑</span> Sesión Premium Activa
               </div>
-              <button onClick={() => { setIsAuth(false); setPassword(""); setPremiumAccess(false); }}
-                className="text-xs text-slate-600 hover:text-slate-400 transition-colors underline">
-                Cerrar sesión
-              </button>
+              {payload?.stripe && (
+                <span className="text-xs text-slate-500">Suscripción Stripe activa en este dispositivo</span>
+              )}
+              {showPasswordLogout && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearPasswordPremiumAccess();
+                    setPassword("");
+                    setHasAccess(hasPremiumAccess());
+                  }}
+                  className="text-xs text-slate-600 hover:text-slate-400 transition-colors underline"
+                >
+                  Cerrar sesión
+                </button>
+              )}
             </div>
             <h1 className="font-display text-5xl sm:text-6xl text-white tracking-wide mb-2">ANÁLISIS PREMIUM</h1>
             <p className="text-slate-400 text-sm">Acceso completo — todos los análisis IA desbloqueados.</p>
@@ -167,7 +159,9 @@ export default function PremiumPage() {
         </div>
 
         {/* Canceled notice */}
-        <CanceledBanner show={showCanceled} />
+        <Suspense>
+          <CanceledBanner />
+        </Suspense>
 
         {/* ── Free vs Premium comparison table ── */}
         <div className="mb-12 overflow-x-auto rounded-2xl border border-white/8">

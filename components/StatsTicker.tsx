@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 
 const stats = [
   { label: "Partidos analizados hoy", value: "24" },
@@ -12,6 +13,29 @@ const stats = [
 ];
 
 export default function StatsTicker() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Render static version on server, animated on client
+  if (!mounted) {
+    return (
+      <div className="overflow-hidden border-b border-white/5 bg-dark-800/60 py-2.5">
+        <div className="flex whitespace-nowrap px-4">
+          {stats.slice(0, 4).map((stat, i) => (
+            <div key={i} className="flex items-center gap-2 mx-10 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+              <span className="text-xs text-slate-500">{stat.label}:</span>
+              <span className="text-xs font-mono font-semibold text-brand-400">{stat.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-hidden border-b border-white/5 bg-dark-800/60 py-2.5">
       <div className="flex animate-ticker whitespace-nowrap">

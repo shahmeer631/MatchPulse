@@ -1,71 +1,100 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder", {
-  apiVersion: "2024-06-20",
-});
-
-async function resolveStripePriceId(inputId?: string) {
-  const rawId = (inputId || process.env.STRIPE_PRICE_ID || "").trim();
-  if (!rawId) {
-    throw new Error("Falta STRIPE_PRICE_ID en configuración.");
-  }
-
-  // Accept either a Price ID (price_...) or Product ID (prod_...).
-  if (rawId.startsWith("price_")) return rawId;
-
-  if (rawId.startsWith("prod_")) {
-    const product = await stripe.products.retrieve(rawId, { expand: ["default_price"] });
-    const defaultPrice = product.default_price;
-
-    if (!defaultPrice) {
-      throw new Error("El producto no tiene precio por defecto en Stripe.");
-    }
-
-    if (typeof defaultPrice === "string") return defaultPrice;
-    if (defaultPrice.id) return defaultPrice.id;
-  }
-
-  throw new Error("ID de Stripe inválido. Usa price_xxx o prod_xxx.");
+// Validate env at module level — fail fast with clear error
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.warn("⚠️  STRIPE_SECRET_KEY not set — Stripe features disabled");
 }
 
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" })
+  : null;
+
 export async function POST(req: NextRequest) {
-  // Guard: return helpful error if keys not configured
-  if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY.includes("REPLACE")) {
+  if (!stripe) {
     return NextResponse.json(
-      { error: "Stripe no configurado. Añade tus claves en .env.local" },
+      {
+        error:    "Stripe not configured",
+        message:  "Add STRIPE_SECRET_KEY to .env.local",
+        docsUrl:  "https://dashboard.stripe.com/apikeys",
+      },
       { status: 503 }
     );
   }
 
-  try {
-    const { priceId } = await req.json();
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const resolvedPriceId = await resolveStripePriceId(priceId);
+  if (!process.env.STRIPE_PRICE_ID) {
+    return NextResponse.json(
+      {
+        error:   "STRIPE_PRICE_ID not set",
+        message:
+          "Add STRIPE_PRICE_ID to .env.local: a Price ID (price_…) or Product ID (prod_…). See README.",
+        docsUrl: "https://dashboard.stripe.com/products",
+      },
+      { status: 503 }
+    );
+  }
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
+  let body: { priceId?: string; email?: string } = {};
+  try {
+    body = await req.json();
+  } catch {
+    // body is optional
+  }
+
+  const priceOrProductId = body.priceId || process.env.STRIPE_PRICE_ID;
+  const appUrl           = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+  const unitAmountRaw = parseInt(process.env.STRIPE_SUBSCRIPTION_UNIT_AMOUNT || "999", 10);
+  const unitAmount    = Number.isFinite(unitAmountRaw) && unitAmountRaw > 0 ? unitAmountRaw : 999;
+  const currency = (process.env.STRIPE_SUBSCRIPTION_CURRENCY || "eur").toLowerCase();
+
+  const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = priceOrProductId.startsWith("prod_")
+    ? [
         {
-          price: resolvedPriceId,
           quantity: 1,
+          price_data: {
+            currency,
+            product:     priceOrProductId,
+            unit_amount: unitAmount,
+            recurring:   { interval: "month" },
+          },
         },
-      ],
+      ]
+    : [{ price: priceOrProductId, quantity: 1 }];
+
+  try {
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
+      payment_method_types: ["card"],
+      line_items,
       mode: "subscription",
       success_url: `${appUrl}/premium/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/premium?canceled=true`,
-      locale: "es",
-      allow_promotion_codes: true,
+      cancel_url:  `${appUrl}/premium?canceled=true`,
+      locale:      "es",
+      allow_promotion_codes:    true,
       billing_address_collection: "required",
       subscription_data: {
-        metadata: { platform: "matchpulse" },
+        metadata: {
+          platform: "matchpulse",
+          createdAt: new Date().toISOString(),
+        },
+        trial_period_days: 7, // 7-day free trial — remove if not wanted
       },
-    });
+      // Pre-fill email if provided
+      ...(body.email ? { customer_email: body.email } : {}),
+    };
 
-    return NextResponse.json({ sessionId: session.id, url: session.url });
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    return NextResponse.json({
+      sessionId: session.id,
+      url:       session.url,
+    });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Error desconocido";
-    console.error("Stripe error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    const stripeErr = err as Stripe.StripeRawError;
+    console.error("Stripe checkout error:", stripeErr.message);
+    return NextResponse.json(
+      { error: stripeErr.message || "Stripe error" },
+      { status: 400 }
+    );
   }
 }

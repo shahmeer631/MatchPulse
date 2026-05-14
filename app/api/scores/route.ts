@@ -5,28 +5,21 @@ import { NextResponse } from "next/server";
 const API_KEY = process.env.FOOTBALL_API_KEY;
 const BASE_URL = "https://api.football-data.org/v4";
 
-function getMockScores(source: "mock" | "error", reason?: string) {
-  return NextResponse.json({
-    source,
-    reason,
-    lastUpdated: new Date().toISOString(),
-    matches: [
-      { id: "1", homeScore: null, awayScore: null, status: "scheduled", minute: null },
-      { id: "2", homeScore: null, awayScore: null, status: "scheduled", minute: null },
-      { id: "3", homeScore: null, awayScore: null, status: "scheduled", minute: null },
-      { id: "4", homeScore: null, awayScore: null, status: "scheduled", minute: null },
-      { id: "5", homeScore: null, awayScore: null, status: "scheduled", minute: null },
-      { id: "6", homeScore: null, awayScore: null, status: "scheduled", minute: null },
-    ],
-  });
-}
-
 export async function GET() {
-  const sanitizedApiKey = API_KEY?.replace(/\s+/g, "").trim();
-
   // If no API key configured, return mock live data
-  if (!sanitizedApiKey || sanitizedApiKey.includes("REPLACE")) {
-    return getMockScores("mock", "missing_api_key");
+  if (!API_KEY || API_KEY.includes("REPLACE")) {
+    return NextResponse.json({
+      source: "mock",
+      lastUpdated: new Date().toISOString(),
+      matches: [
+        { id: "1", homeScore: null, awayScore: null, status: "scheduled", minute: null },
+        { id: "2", homeScore: null, awayScore: null, status: "scheduled", minute: null },
+        { id: "3", homeScore: null, awayScore: null, status: "scheduled", minute: null },
+        { id: "4", homeScore: null, awayScore: null, status: "scheduled", minute: null },
+        { id: "5", homeScore: null, awayScore: null, status: "scheduled", minute: null },
+        { id: "6", homeScore: null, awayScore: null, status: "scheduled", minute: null },
+      ]
+    });
   }
 
   try {
@@ -35,16 +28,12 @@ export async function GET() {
     const res = await fetch(
       `${BASE_URL}/matches?dateFrom=${today}&dateTo=${today}&competitions=PL,PD,SA,CL`,
       {
-        headers: { "X-Auth-Token": sanitizedApiKey },
+        headers: { "X-Auth-Token": API_KEY },
         next: { revalidate: 60 }, // cache 60 seconds
       }
     );
 
-    if (!res.ok) {
-      const rawBody = await res.text();
-      console.error("Scores upstream API error:", res.status, rawBody);
-      return getMockScores("error", `upstream_${res.status}`);
-    }
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
     const data = await res.json();
 
     // Map to our format
@@ -68,6 +57,9 @@ export async function GET() {
     });
   } catch (err) {
     console.error("Scores API error:", err);
-    return getMockScores("error", "request_failed");
+    return NextResponse.json(
+      { source: "error", lastUpdated: new Date().toISOString(), matches: [] },
+      { status: 500 }
+    );
   }
 }

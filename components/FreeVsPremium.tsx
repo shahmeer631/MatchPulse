@@ -1,9 +1,5 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import StripeCheckout from "./StripeCheckout";
-import { hasPremiumAccess } from "@/lib/premiumAccess";
 
 const freeFeatures = [
   { included: true,  text: "Ver partidos del día (todas las ligas)" },
@@ -28,12 +24,6 @@ const premiumFeatures = [
 ];
 
 export default function FreeVsPremium() {
-  const [isPremiumUser, setIsPremiumUser] = useState(false);
-
-  useEffect(() => {
-    setIsPremiumUser(hasPremiumAccess());
-  }, []);
-
   return (
     <section id="precios" className="py-24 px-4">
       <div className="max-w-5xl mx-auto">
@@ -101,18 +91,7 @@ export default function FreeVsPremium() {
             </div>
 
             <div className="px-8 pb-8">
-              {isPremiumUser ? (
-                <div>
-                  <div className="w-full py-4 bg-brand-500/15 border border-brand-500/40 text-brand-400 font-bold text-sm rounded-xl text-center">
-                    ✅ Premium activo — pago confirmado
-                  </div>
-                  <p className="text-xs text-slate-500 text-center mt-2">
-                    Ya tienes acceso completo a todos los análisis IA.
-                  </p>
-                </div>
-              ) : (
-                <StripeCheckout variant="gold" label="Activar Premium → 9,99€/mes" />
-              )}
+              <StripeCheckout variant="gold" label="Activar Premium → 9,99€/mes" />
             </div>
           </div>
         </div>
