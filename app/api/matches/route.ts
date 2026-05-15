@@ -1,96 +1,201 @@
 import { NextResponse } from "next/server";
+import {
+  FOOTBALL_COMPETITIONS,
+  FOOTBALL_DATA_BASE,
+  dateRangeWindow,
+  mapFootballMatch,
+  leagueMetaFromMatchRow,
+  readFootballDataError,
+  getFootballApiKey,
+  sortMatches,
+  type MappedMatch,
+} from "@/lib/footballData";
 
-const API_KEY  = process.env.FOOTBALL_API_KEY;
-const BASE_URL = "https://api.football-data.org/v4";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-const COMPETITIONS = [
-  { id: "PD", league: "La Liga",          flag: "🇪🇸" },
-  { id: "PL", league: "Premier League",   flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
-  { id: "SA", league: "Serie A",          flag: "🇮🇹" },
-  { id: "CL", league: "Champions League", flag: "🏆" },
-];
+type FetchIssue = { source: string; status: number; message: string };
 
-function mapStatus(s: string): "scheduled" | "live" | "finished" {
-  if (["IN_PLAY", "PAUSED", "HALFTIME"].includes(s)) return "live";
-  if (["FINISHED", "AWARDED"].includes(s))           return "finished";
-  return "scheduled";
+async function fetchJson(
+  url: string,
+  apiKey: string
+): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; issue: FetchIssue }> {
+  try {
+    const res = await fetch(url, {
+      headers: { "X-Auth-Token": apiKey },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const message = await readFootballDataError(res);
+      return {
+        ok: false,
+        issue: { source: url.replace(FOOTBALL_DATA_BASE, ""), status: res.status, message },
+      };
+    }
+    const data = (await res.json()) as Record<string, unknown>;
+    return { ok: true, data };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Network error";
+    return {
+      ok: false,
+      issue: { source: url.replace(FOOTBALL_DATA_BASE, ""), status: 0, message },
+    };
+  }
 }
 
-export async function GET() {
-  if (!API_KEY || API_KEY.includes("REPLACE")) {
-    return NextResponse.json({
-      source: "no_key",
-      error:  "FOOTBALL_API_KEY not set in .env.local",
-      setup:  "Register free at https://www.football-data.org/register",
-      matches: [],
-    }, { status: 503 });
+function parseMatchesFromPayload(
+  data: Record<string, unknown>,
+  defaultLeague?: string,
+  defaultFlag?: string,
+  competitionCode?: string
+): MappedMatch[] {
+  const rows = (data.matches || []) as Record<string, unknown>[];
+  const out: MappedMatch[] = [];
+  for (const m of rows) {
+    const meta = defaultLeague
+      ? { league: defaultLeague, flag: defaultFlag || "⚽" }
+      : leagueMetaFromMatchRow(m);
+    const mapped = mapFootballMatch(
+      m,
+      meta.league,
+      meta.flag,
+      competitionCode || ("code" in meta ? meta.code : undefined)
+    );
+    if (mapped) out.push(mapped);
   }
+  return out;
+}
 
-  const today = new Date();
-  const from  = new Date(today); from.setDate(from.getDate() - 1);
-  const to    = new Date(today); to.setDate(to.getDate()   + 3);
-  const dateFrom = from.toISOString().split("T")[0];
-  const dateTo   = to.toISOString().split("T")[0];
+/** One request — best for rate limits (free tier: 10/min). */
+async function fetchAggregated(
+  apiKey: string,
+  dateFrom: string,
+  dateTo: string
+): Promise<{ matches: MappedMatch[]; issue?: FetchIssue }> {
+  const codes = FOOTBALL_COMPETITIONS.map((c) => c.code).join(",");
+  const url = `${FOOTBALL_DATA_BASE}/matches?dateFrom=${dateFrom}&dateTo=${dateTo}&competitions=${codes}`;
+  const result = await fetchJson(url, apiKey);
+  if (!result.ok) return { matches: [], issue: result.issue };
+  return { matches: parseMatchesFromPayload(result.data) };
+}
 
-  const results: Record<string, unknown>[] = [];
+/** Per-league fallback if aggregated call fails or returns empty. */
+async function fetchPerCompetition(
+  apiKey: string,
+  dateFrom: string,
+  dateTo: string
+): Promise<{ matches: MappedMatch[]; issues: FetchIssue[] }> {
+  const byId = new Map<string, MappedMatch>();
+  const issues: FetchIssue[] = [];
 
-  for (const comp of COMPETITIONS) {
-    try {
-      const res = await fetch(
-        `${BASE_URL}/competitions/${comp.id}/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`,
-        {
-          headers: { "X-Auth-Token": API_KEY },
-          next: { revalidate: 55 },
-        }
-      );
-      if (!res.ok) continue;
-
-      const data = await res.json();
-      for (const m of (data.matches || []) as Record<string, unknown>[]) {
-        const score    = m.score    as Record<string, unknown>;
-        const ft       = score?.fullTime as Record<string, number | null>;
-        const ht       = score?.halfTime as Record<string, number | null>;
-        const home     = m.homeTeam as Record<string, unknown>;
-        const away     = m.awayTeam as Record<string, unknown>;
-
-        results.push({
-          id:            String(m.id),
-          homeTeam:      String(home?.shortName || home?.name || ""),
-          awayTeam:      String(away?.shortName || away?.name || ""),
-          homeTeamFull:  String(home?.name || ""),
-          awayTeamFull:  String(away?.name || ""),
-          homeCrest:     String(home?.crest || ""),
-          awayCrest:     String(away?.crest || ""),
-          dateISO:       String(m.utcDate || ""),
-          status:        mapStatus(String(m.status || "")),
-          minute:        (m.minute as number | null) ?? null,
-          homeScore:     ft?.home ?? ht?.home ?? null,
-          awayScore:     ft?.away ?? ht?.away ?? null,
-          league:        comp.league,
-          leagueFlag:    comp.flag,
-          venue:         String((m.venue as string) || ""),
-          matchday:      (m.matchday as number | null) ?? null,
-          stage:         String(m.stage || ""),
-        });
-      }
-    } catch (err) {
-      console.error(`Error fetching ${comp.id}:`, err);
+  for (const comp of FOOTBALL_COMPETITIONS) {
+    const url = `${FOOTBALL_DATA_BASE}/competitions/${comp.code}/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`;
+    const result = await fetchJson(url, apiKey);
+    if (!result.ok) {
+      issues.push(result.issue);
+      continue;
+    }
+    for (const m of parseMatchesFromPayload(result.data, comp.league, comp.flag, comp.code)) {
+      byId.set(m.id, m);
     }
   }
 
-  // Sort: live first, then by date
-  results.sort((a, b) => {
-    const order = { live: 0, scheduled: 1, finished: 2 };
-    const sa = order[(a.status as keyof typeof order)] ?? 1;
-    const sb = order[(b.status as keyof typeof order)] ?? 1;
-    if (sa !== sb) return sa - sb;
-    return String(a.dateISO) < String(b.dateISO) ? -1 : 1;
-  });
+  return { matches: [...byId.values()], issues };
+}
+
+export async function GET() {
+  const API_KEY = getFootballApiKey();
+
+  if (!API_KEY) {
+    return NextResponse.json(
+      {
+        source: "no_key",
+        error: "FOOTBALL_API_KEY not set. Add it to .env.local (local) or Vercel Environment Variables (production), then restart the server.",
+        setup: "https://www.football-data.org/register",
+        matches: [],
+      },
+      { status: 503 }
+    );
+  }
+
+  const { dateFrom, dateTo } = dateRangeWindow(7, 14);
+  const issues: FetchIssue[] = [];
+  let matches: MappedMatch[] = [];
+  let fetchMode: "aggregated" | "per_competition" | "none" = "none";
+
+  const aggregated = await fetchAggregated(API_KEY, dateFrom, dateTo);
+  if (aggregated.issue) issues.push(aggregated.issue);
+
+  if (aggregated.matches.length > 0) {
+    matches = aggregated.matches;
+    fetchMode = "aggregated";
+  } else {
+    const fallback = await fetchPerCompetition(API_KEY, dateFrom, dateTo);
+    issues.push(...fallback.issues);
+    matches = fallback.matches;
+    fetchMode = "per_competition";
+  }
+
+  const deduped = [...new Map(matches.map((m) => [m.id, m])).values()];
+  const sorted = sortMatches(deduped);
+
+  const invalidToken = issues.some(
+    (i) =>
+      i.status === 400 &&
+      /invalid|token/i.test(i.message)
+  );
+  const authFailed = issues.some((i) => i.status === 401 || i.status === 403);
+
+  if (sorted.length === 0 && (invalidToken || authFailed)) {
+    return NextResponse.json(
+      {
+        source: "error",
+        error: invalidToken
+          ? "FOOTBALL_API_KEY is invalid. Log in at football-data.org → Account → API token, copy the token only (not email/password), paste in .env.local as FOOTBALL_API_KEY=your_token with no quotes, then restart npm run dev."
+          : "Invalid or unauthorized FOOTBALL_API_KEY. Create a new key at football-data.org and ensure it is copied without spaces.",
+        matches: [],
+        dateFrom,
+        dateTo,
+        issues,
+      },
+      { status: invalidToken ? 400 : 401 }
+    );
+  }
+
+  if (sorted.length === 0 && issues.length > 0 && issues.every((i) => i.status >= 400 || i.status === 0)) {
+    return NextResponse.json(
+      {
+        source: "error",
+        error: "football-data.org returned no matches and all requests failed. See issues for details.",
+        matches: [],
+        dateFrom,
+        dateTo,
+        fetchMode,
+        issues,
+      },
+      { status: 502 }
+    );
+  }
+
+  const warnings: string[] = [];
+  if (sorted.length === 0) {
+    warnings.push(
+      `No fixtures between ${dateFrom} and ${dateTo} for PL, PD, SA, CL (off-season or international break). Data will appear when matches are scheduled.`
+    );
+  }
+  if (issues.length > 0 && sorted.length > 0) {
+    warnings.push("Some competition requests failed; showing partial results.");
+  }
 
   return NextResponse.json({
-    source:      "live",
+    source: "live",
     lastUpdated: new Date().toISOString(),
-    count:       results.length,
-    matches:     results,
+    count: sorted.length,
+    matches: sorted,
+    dateFrom,
+    dateTo,
+    fetchMode,
+    issues: issues.length ? issues : undefined,
+    warnings: warnings.length ? warnings : undefined,
   });
 }

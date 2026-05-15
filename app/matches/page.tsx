@@ -424,6 +424,9 @@ export default function MatchesPage() {
   const [lastUpdated,  setLastUpdated]  = useState<Date | null>(null);
   const [refreshing,   setRefreshing]   = useState(false);
   const [noApiKey,     setNoApiKey]     = useState(false);
+  const [apiWarnings,  setApiWarnings]  = useState<string[]>([]);
+  const [apiIssues,    setApiIssues]    = useState<{ source: string; status: number; message: string }[]>([]);
+  const [dateWindow,   setDateWindow]   = useState<{ from: string; to: string } | null>(null);
   const [isPremium,    setIsPremium]    = useState(false);
 
   useEffect(() => {
@@ -443,12 +446,26 @@ export default function MatchesPage() {
 
       if (data.source === "no_key") {
         setNoApiKey(true);
+        setApiWarnings([]);
+        setApiIssues([]);
         setLoading(false);
         setRefreshing(false);
         return;
       }
 
-      if (!res.ok) throw new Error(data.error || "API error");
+      setNoApiKey(false);
+      setApiWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+      setApiIssues(Array.isArray(data.issues) ? data.issues : []);
+      if (data.dateFrom && data.dateTo) {
+        setDateWindow({ from: data.dateFrom, to: data.dateTo });
+      }
+
+      if (!res.ok) {
+        const detail = Array.isArray(data.issues) && data.issues[0]
+          ? ` (${data.issues[0].status}: ${data.issues[0].message})`
+          : "";
+        throw new Error((data.error || "API error") + detail);
+      }
 
       // Mark the first non-premium match as free
       const raw: LiveMatch[] = (data.matches || []).map((m: LiveMatch, i: number) => ({
@@ -602,6 +619,34 @@ export default function MatchesPage() {
               FOOTBALL_API_KEY=tu_clave_aqui
             </div>
           </div>
+        )}
+
+        {apiWarnings.length > 0 && !error && (
+          <div className="mb-8 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
+            {apiWarnings.map((w) => (
+              <p key={w} className="text-xs text-amber-200/90 leading-relaxed">{w}</p>
+            ))}
+            {dateWindow && (
+              <p className="text-[11px] text-slate-500 mt-2 font-mono">
+                Ventana: {dateWindow.from} → {dateWindow.to}
+              </p>
+            )}
+          </div>
+        )}
+
+        {apiIssues.length > 0 && !error && (
+          <details className="mb-8 bg-dark-700 border border-white/10 rounded-2xl p-4 text-xs text-slate-400">
+            <summary className="cursor-pointer text-slate-300 font-medium">
+              Detalles técnicos de football-data.org ({apiIssues.length})
+            </summary>
+            <ul className="mt-3 space-y-2 font-mono">
+              {apiIssues.map((i) => (
+                <li key={`${i.source}-${i.status}`}>
+                  {i.source} — {i.status || "network"}: {i.message}
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
 
         {/* Generic error */}

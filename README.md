@@ -19,6 +19,13 @@ FOOTBALL_API_KEY=your_key_here
 - Free tier: 10 calls/min, all 4 leagues included
 - Paid tier: real-time, no limits — https://www.football-data.org/pricing
 
+**Troubleshooting empty matches**
+- Variable name must be exactly `FOOTBALL_API_KEY` (no quotes/spaces in the value).
+- **Restart** `npm run dev` or **redeploy** Vercel after changing env vars.
+- Open `http://localhost:3000/api/matches` — you should see `count` > 0 or a clear `error` / `issues` array (not a silent empty list).
+- If `count` is 0 with `warnings`, there may simply be no fixtures in the next 7–14 days (off-season); the UI explains the date window.
+- **401/403** in `issues` → invalid key or competition not on your plan; create a new key at football-data.org.
+
 ### 2. Anthropic API (Real AI Analysis)
 Get key at https://console.anthropic.com/
 ```

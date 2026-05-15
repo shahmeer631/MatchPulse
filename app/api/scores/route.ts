@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 
 // Free API: https://www.football-data.org/ (get free key, 10 calls/min)
 // Competitions: PL=39, PD=140, SA=135, CL=2021
-const API_KEY = process.env.FOOTBALL_API_KEY;
+import { getFootballApiKey } from "@/lib/footballData";
+
+const API_KEY = getFootballApiKey();
 const BASE_URL = "https://api.football-data.org/v4";
 
 export async function GET() {
   // If no API key configured, return mock live data
-  if (!API_KEY || API_KEY.includes("REPLACE")) {
+  if (!API_KEY) {
     return NextResponse.json({
       source: "mock",
       lastUpdated: new Date().toISOString(),

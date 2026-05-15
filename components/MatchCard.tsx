@@ -83,7 +83,7 @@ export default function MatchCard({ match, isPremiumUser }: MatchCardProps) {
               </div>
             )}
             {/* Time / timezone */}
-            <div className="text-center mt-1">
+            <div className="text-center mt-1" suppressHydrationWarning>
               <div className="text-xs font-mono text-slate-300 font-medium">{localTime}</div>
               <div className="text-[10px] text-slate-600 mt-0.5">{localDate}</div>
             </div>
